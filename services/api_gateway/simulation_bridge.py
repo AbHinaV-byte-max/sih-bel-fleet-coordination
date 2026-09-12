@@ -13,7 +13,7 @@ import random
 from config.config_schema import AppConfig, load_config
 from services.comms_broker.broker import ProcessMessageBus, PeerBrokerClient
 from services.robot_agent.agent import RobotAgent
-from services.robot_agent.conflict_resolution import ConflictDecision
+from services.robot_agent.conflict_resolution import ConflictDecision, DecisionType
 from services.task_allocation.allocator import HungarianTaskAllocator
 from services.task_allocation.task_models import WarehouseTask, RobotCapability, TaskStatus, TaskPriority
 from services.metrics.tracker import FleetMetricsTracker

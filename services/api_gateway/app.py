@@ -77,6 +77,8 @@ async def background_simulation_loop():
         except asyncio.CancelledError:
             break
         except Exception as e:
+            import logging
+            logging.error(f"Simulation loop crashed: {e}", exc_info=True)
             await asyncio.sleep(0.5)
 
 
