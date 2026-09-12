@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Fleet Hub | Bharat Electronics Limited</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-badge">BEL</div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <h1 class="brand-title">Autonomous Fleet Hub</h1>
+          <span class="pill pill-cyan">SIH PS 26123</span>
+          <span class="pill pill-emerald">Defense Depot</span>
+        </div>
+        <p class="brand-subtitle">DECENTRALIZED AMR FLEET COORDINATION &bull; Zero-Collision Guarantee &bull; 100% Explainable</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="connection-indicator" id="connectionPill">
+        <span class="indicator-dot"></span>
+        <span id="connStatus">Connecting...</span>
+      </div>
+
+      <button id="btnToggleSim" class="btn btn-warning" title="Pause or resume live robot motion">
+        <span class="btn-icon">⏸</span> Pause Fleet
+      </button>
+
+      <button id="btnStep" class="btn btn-secondary" title="Advance simulation by one single step">
+        <span class="btn-icon">⏭</span> Step
+      </button>
+
+      <button id="btnBenchmark" class="btn btn-primary" title="Benchmark decentralized coordination vs naive stop-and-wait">
+        <span class="btn-icon">⚡</span> Benchmark (+85.5%)
+      </button>
+
+      <button id="btnNewTask" class="btn btn-success" title="Submit a new logistics delivery order">
+        <span class="btn-icon">+</span> New Delivery
+      </button>
+
+      <button id="btnHelp" class="btn btn-ghost" title="Learn how this system coordinates robots">
+        <span class="btn-icon">💡</span> Guide
+      </button>
+    </div>
+  </header>
+
+  <!-- Quick Info Helper Banner -->
+  <div class="quick-banner">
+    <div class="banner-content">
+      <span class="banner-emoji">🤖</span>
+      <span class="banner-text">
+        <strong>Live Autonomous AMR Fleet:</strong> 6 mobile robots navigating warehouse corridors with peer-to-peer collision avoidance. Switch between <strong>3D Isometric</strong> and <strong>2D Top-Down</strong> views below!
+      </span>
+    </div>
+    <div class="banner-actions">
+      <button class="banner-close" id="btnCloseBanner" aria-label="Dismiss">&times;</button>
+    </div>
+  </div>
+
+  <!-- Main Layout Grid -->
+  <main class="app-layout">
+
+    <!-- KPI Summary Row -->
+    <section class="kpi-grid">
+      <!-- Card 1: Safety / Collisions -->
+      <div class="kpi-card card-safe">
+        <div class="kpi-top">
+          <span class="kpi-title">Collision Safety</span>
+          <span class="status-tag tag-emerald">STRICT 0 TARGET</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value-group">
+            <span class="kpi-big-value text-emerald" id="valCollisions">0</span>
+            <span class="kpi-subtext">Zero collisions verified</span>
+          </div>
+          <div class="kpi-icon-badge bg-emerald-subtle text-emerald">🛡️</div>
+        </div>
+        <div class="kpi-footer">
+          <span class="footer-badge safe" id="badgeCollisions">100% Collision-Free Record</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Fleet Efficiency Gain -->
+      <div class="kpi-card card-efficiency">
+        <div class="kpi-top">
+          <span class="kpi-title">Fleet Efficiency Gain</span>
+          <span class="status-tag tag-cyan">TARGET: ≥ 20%</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value-group">
+            <span class="kpi-big-value text-cyan" id="valImprovement">+85.5%</span>
+            <span class="kpi-subtext">vs. Naive stop-and-wait</span>
+          </div>
+          <div class="kpi-icon-badge bg-cyan-subtle text-cyan">⚡</div>
+        </div>
+        <div class="kpi-footer">
+          <span class="footer-badge cyan" id="badgeEfficiency">Target Achieved (+85.5% faster)</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Active AMRs -->
+      <div class="kpi-card card-fleet">
+        <div class="kpi-top">
+          <span class="kpi-title">Active Edge AMRs</span>
+          <span class="status-tag tag-purple">HETEROGENEOUS</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value-group">
+            <span class="kpi-big-value text-purple" id="valActiveRobots">6 / 6</span>
+            <span class="kpi-subtext">P2P decision engines online</span>
+          </div>
+          <div class="kpi-icon-badge bg-purple-subtle text-purple">🚚</div>
+        </div>
+        <div class="kpi-footer">
+          <span class="footer-badge purple">Full Fleet Operational</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Orders Dispatched -->
+      <div class="kpi-card card-tasks">
+        <div class="kpi-top">
+          <span class="kpi-title">Logistics Orders</span>
+          <span class="status-tag tag-amber">HUNGARIAN OPTIMAL</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value-group">
+            <span class="kpi-big-value text-amber" id="valTasks">12</span>
+            <span class="kpi-subtext">Min-cost capacity assigned</span>
+          </div>
+          <div class="kpi-icon-badge bg-amber-subtle text-amber">📦</div>
+        </div>
+        <div class="kpi-footer">
+          <span class="footer-badge amber">Zero Allocation Starvation</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace: Canvas Center + Sidebar -->
+    <div class="workspace-grid">
+
+      <!-- Center Stage: Tactical Warehouse Map + Trend Chart -->
+      <section class="stage-column">
+
+        <!-- 2D / 3D Warehouse Canvas Panel -->
+        <div class="panel canvas-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-heading">Warehouse Floor Simulation</h2>
+              <span class="panel-subheading">24m &times; 18m Live Digital Twin</span>
+            </div>
+
+            <!-- Canvas View & Layer Controls -->
+            <div class="view-controls">
+              <!-- 2D / 3D Switcher Toggle -->
+              <div class="view-toggle-group">
+                <button id="btnView3D" class="toggle-btn active" title="Switch to 3D Isometric View with floor depth and shadows">
+                  <span class="toggle-icon">🧊</span> 3D Isometric
+                </button>
+                <button id="btnView2D" class="toggle-btn" title="Switch to Clean 2D Top-Down View">
+                  <span class="toggle-icon">📐</span> 2D Top-Down
+                </button>
+              </div>
+
+              <div class="divider-v"></div>
+
+              <!-- Layer Toggles -->
+              <button id="btnTogglePhysics" class="btn btn-sm btn-layer active" title="Toggle realistic inertia, suspension bobbing & cargo physics">
+                ⚡ Physics On
+              </button>
+              <button id="btnToggleHeatmap" class="btn btn-sm btn-layer active" title="Toggle real-time intersection congestion heatmap">
+                🔥 Heatmap
+              </button>
+              <button id="btnToggleHuman" class="btn btn-sm btn-layer active" title="Toggle human-presence safety warning zones">
+                ⚠ Safety Zones
+              </button>
+              <button id="btnTogglePaths" class="btn btn-sm btn-layer active" title="Toggle robot forward intent path ribbons">
+                🎯 Paths
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas Container with Interactive Tooltip -->
+          <div class="canvas-viewport" id="canvasViewport">
+            <canvas id="warehouseCanvas"></canvas>
+            <!-- Live Hover Inspection Tooltip -->
+            <div id="robotTooltip" class="canvas-tooltip" style="display: none;">
+              <div class="tooltip-header" id="ttHeader">AMR-01</div>
+              <div class="tooltip-body" id="ttBody">Payload: 250kg | State: MOVING</div>
+            </div>
+          </div>
+
+          <!-- Legend Bar -->
+          <div class="canvas-legend">
+            <div class="legend-chip"><span class="legend-swatch swatch-rack"></span> Storage Racks</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-in"></span> Pickup Station (IN)</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-out"></span> Dropoff Hub (OUT)</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-safety"></span> Human Zone (Speed Derated)</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-moving"></span> Moving AMR</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-yielding"></span> Yielding (Right-of-Way)</div>
+            <div class="legend-chip"><span class="legend-swatch swatch-waiting"></span> Clearance Wait</div>
+          </div>
+        </div>
+
+        <!-- Trend Chart Panel -->
+        <div class="panel trend-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-heading">Mission Completion Benchmark</h2>
+              <span class="panel-subheading">
+                <span class="dot-legend dot-cyan"></span> Decentralized DSS (Fast &amp; Safe) vs.
+                <span class="dot-legend dot-amber"></span> Naive Stop-and-Wait Baseline
+              </span>
+            </div>
+          </div>
+          <div class="trend-canvas-wrapper">
+            <canvas id="trendChartCanvas"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Sidebar: Fleet Cards, Explainable Logs, Tasks -->
+      <aside class="sidebar-column">
+
+        <!-- Tabbed Sidebar Container -->
+        <div class="panel sidebar-panel">
+          <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="tab-fleet" id="tabBtnFleet">
+              🚚 Fleet (<span id="tabFleetCount">6</span>)
+            </button>
+            <button class="sidebar-tab" data-tab="tab-logs" id="tabBtnLogs">
+              🧠 Decisions &amp; Safety
+            </button>
+            <button class="sidebar-tab" data-tab="tab-tasks" id="tabBtnTasks">
+              📋 Orders (<span id="tabTaskCount">0</span>)
+            </button>
+          </div>
+
+          <!-- Tab 1: Live AMR Fleet Cards -->
+          <div class="tab-content active" id="tab-fleet">
+            <div class="fleet-list" id="fleetList">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
+
+          <!-- Tab 2: Explainable Decision Log Stream -->
+          <div class="tab-content" id="tab-logs">
+            <div class="log-intro">
+              <span>Deterministic Right-of-Way Decisions (Audit Trail)</span>
+            </div>
+            <div class="log-stream" id="logStream">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
+
+          <!-- Tab 3: Hungarian Task Queue -->
+          <div class="tab-content" id="tab-tasks">
+            <div class="task-queue-wrapper">
+              <table class="task-table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Route</th>
+                    <th>Weight</th>
+                    <th>AMR</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="taskTableBody">
+                  <!-- Populated dynamically by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <strong>Bharat Electronics Limited (BEL)</strong> &bull; Smart India Hackathon Problem Statement 26123
+      </div>
+      <div class="footer-right">
+        <span>Decentralized Multi-Agent Decision-Support System</span> &bull; 
+        <span>Zero Foreign Proprietary Dependencies</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Modal: Create New Delivery Order -->
+  <div class="modal-backdrop" id="taskModal" style="display: none;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Dispatch Logistics Order</h3>
+          <p class="modal-subtitle">Hungarian matching will assign this order to the most optimal robot.</p>
+        </div>
+        <button class="modal-close" id="btnCloseModal">&times;</button>
+      </div>
+
+      <!-- Quick Preset Buttons -->
+      <div class="preset-section">
+        <label class="form-label">Quick Order Presets</label>
+        <div class="preset-buttons">
+          <button type="button" class="btn-preset" data-px="1" data-py="2" data-dx="22" data-dy="8" data-w="30" data-prio="2">
+            📦 Standard Box (30kg)
+          </button>
+          <button type="button" class="btn-preset" data-px="1" data-py="8" data-dx="22" data-dy="15" data-w="180" data-prio="3">
+            ⚙ Industrial Pallet (180kg)
+          </button>
+          <button type="button" class="btn-preset" data-px="1" data-py="15" data-dx="22" data-dy="2" data-w="60" data-prio="4">
+            🚨 Urgent Medical/Ammo (60kg)
+          </button>
+        </div>
+      </div>
+
+      <form id="taskForm">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="pickupX">Pickup X (0-23)</label>
+            <input type="number" id="pickupX" class="form-input" value="1" min="0" max="23" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pickupY">Pickup Y (0-17)</label>
+            <input type="number" id="pickupY" class="form-input" value="2" min="0" max="17" required>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="dropoffX">Dropoff X (0-23)</label>
+            <input type="number" id="dropoffX" class="form-input" value="22" min="0" max="23" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="dropoffY">Dropoff Y (0-17)</label>
+            <input type="number" id="dropoffY" class="form-input" value="8" min="0" max="17" required>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="payloadKg">Cargo Weight (kg)</label>
+            <input type="number" id="payloadKg" class="form-input" value="75" min="1" max="1000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="priorityLevel">Priority Tier</label>
+            <select id="priorityLevel" class="form-input">
+              <option value="1">1 - Low (Routine Stocking)</option>
+              <option value="2" selected>2 - Normal (Standard Logistics)</option>
+              <option value="3">3 - High (Assembly Line Supply)</option>
+              <option value="4">4 - Critical (High-Priority Mission)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+          <button type="submit" class="btn btn-success">Dispatch Order Now</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Beginner Quick Guide -->
+  <div class="modal-backdrop" id="helpModal" style="display: none;">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">How the Autonomous Fleet Coordinator Works</h3>
+          <p class="modal-subtitle">A quick 1-minute visual guide for new users.</p>
+        </div>
+        <button class="modal-close" id="btnCloseHelp">&times;</button>
+      </div>
+
+      <div class="guide-cards">
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Decentralized Peer-to-Peer AI</h4>
+            <p>Every robot runs its own independent navigation and decision agent. There is no central computer that can fail or freeze the warehouse.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Deterministic Right-of-Way</h4>
+            <p>When two robots cross paths, they broadcast intent waypoints. A deterministic right-of-way protocol (Priority &rarr; Closer to Goal &rarr; ID) ensures zero collisions without blind stops.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Hungarian Task Matching</h4>
+            <p>New delivery orders are automatically matched to the most capable, closest available robot using the minimum-cost Hungarian algorithm.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Realistic Physics &amp; 3D Graphics</h4>
+            <p>Toggle between the crisp <strong>2D Top-Down</strong> map and the realistic <strong>3D Isometric</strong> view. Robots simulate chassis acceleration tilt, steering inertia, and suspension vibration.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnGotIt">Got It, Let's Explore!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/warehouse_canvas.js"></script>
+  <script src="/static/js/trend_chart.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+# SIH 26123 - Bharat Electronics Limited (BEL)
+# Network-Centric Coordination Architecture - Fleet & Warehouse Configuration
+
+warehouse:
+  name: "BEL_DEFENSE_SUPPLY_DEPOT_ALPHA"
+  width: 24
+  height: 18
+  grid_resolution_meters: 1.0
+
+  # Static structural obstacles (storage racking columns, structural pillars)
+  # Racks are organized in dual-bay vertical aisles with central intersections
+  obstacles:
+    # Aisle Rack Block 1
+    - [3, 3]
+    - [3, 4]
+    - [3, 5]
+    - [3, 6]
+    - [4, 3]
+    - [4, 4]
+    - [4, 5]
+    - [4, 6]
+    - [3, 9]
+    - [3, 10]
+    - [3, 11]
+    - [3, 12]
+    - [4, 9]
+    - [4, 10]
+    - [4, 11]
+    - [4, 12]
+    # Aisle Rack Block 2
+    - [8, 3]
+    - [8, 4]
+    - [8, 5]
+    - [8, 6]
+    - [9, 3]
+    - [9, 4]
+    - [9, 5]
+    - [9, 6]
+    - [8, 9]
+    - [8, 10]
+    - [8, 11]
+    - [8, 12]
+    - [9, 9]
+    - [9, 10]
+    - [9, 11]
+    - [9, 12]
+    # Aisle Rack Block 3
+    - [13, 3]
+    - [13, 4]
+    - [13, 5]
+    - [13, 6]
+    - [14, 3]
+    - [14, 4]
+    - [14, 5]
+    - [14, 6]
+    - [13, 9]
+    - [13, 10]
+    - [13, 11]
+    - [13, 12]
+    - [14, 9]
+    - [14, 10]
+    - [14, 11]
+    - [14, 12]
+    # Aisle Rack Block 4
+    - [18, 3]
+    - [18, 4]
+    - [18, 5]
+    - [18, 6]
+    - [19, 3]
+    - [19, 4]
+    - [19, 5]
+    - [19, 6]
+    - [18, 9]
+    - [18, 10]
+    - [18, 11]
+    - [18, 12]
+    - [19, 9]
+    - [19, 10]
+    - [19, 11]
+    - [19, 12]
+
+  # Workstations and logistics hubs
+  pickup_stations:
+    - id: "PICKUP_A"
+      location: [1, 2]
+    - id: "PICKUP_B"
+      location: [1, 8]
+    - id: "PICKUP_C"
+      location: [1, 14]
+
+  dropoff_stations:
+    - id: "DROPOFF_ALPHA"
+      location: [22, 2]
+    - id: "DROPOFF_BETA"
+      location: [22, 8]
+    - id: "DROPOFF_GAMMA"
+      location: [22, 14]
+
+  charging_pads:
+    - id: "CHARGE_1"
+      location: [6, 16]
+    - id: "CHARGE_2"
+      location: [11, 16]
+    - id: "CHARGE_3"
+      location: [16, 16]
+
+  # Human-Presence Safety Zones (Speed derating & proactive clearance)
+  human_zones:
+    - id: "HUMAN_ZONE_MANUAL_INSPECTION"
+      name: "Manual QA & Inspection Bay"
+      active: true
+      bounds: [10, 14, 15, 17]
+      speed_derating_factor: 0.5
+    - id: "HUMAN_ZONE_PACKING_STATION"
+      name: "Tactical Kitting Station"
+      active: true
+      bounds: [20, 11, 23, 14]
+      speed_derating_factor: 0.5
+
+fleet:
+  robot_types:
+    LIGHT_RUNNER:
+      description: "Agile scout and small component courier"
+      max_speed: 1.5
+      payload_capacity_kg: 50.0
+      battery_capacity_ah: 80.0
+      yield_priority_weight: 1
+    STANDARD_HAULER:
+      description: "Standard defense depot AMR for palletized payloads"
+      max_speed: 1.0
+      payload_capacity_kg: 250.0
+      battery_capacity_ah: 120.0
+      yield_priority_weight: 2
+    HEAVY_CARRIER:
+      description: "Heavy ordnance and heavy-machinery carrier"
+      max_speed: 0.75
+      payload_capacity_kg: 1000.0
+      battery_capacity_ah: 200.0
+      yield_priority_weight: 3
+
+  initial_robots:
+    - id: "AMR-01"
+      type: "STANDARD_HAULER"
+      start_pos: [1, 1]
+      battery_level_pct: 95.0
+    - id: "AMR-02"
+      type: "LIGHT_RUNNER"
+      start_pos: [1, 7]
+      battery_level_pct: 88.0
+    - id: "AMR-03"
+      type: "HEAVY_CARRIER"
+      start_pos: [1, 13]
+      battery_level_pct: 92.0
+    - id: "AMR-04"
+      type: "STANDARD_HAULER"
+      start_pos: [6, 1]
+      battery_level_pct: 82.0
+    - id: "AMR-05"
+      type: "LIGHT_RUNNER"
+      start_pos: [11, 1]
+      battery_level_pct: 90.0
+    - id: "AMR-06"
+      type: "STANDARD_HAULER"
+      start_pos: [16, 1]
+      battery_level_pct: 85.0
+
+coordination:
+  intent_horizon_steps: 5
+  time_step_duration_seconds: 0.5
+  congestion_window_seconds: 60.0
+  congestion_penalty_multiplier: 4.0
+  predictive_maintenance:
+    distance_km_threshold: 15.0
+    operating_cycles_threshold: 40
+
+broker:
+  mode: "embedded"
+  host: "127.0.0.1"
+  port: 1883
+  topic_prefix: "fleet"
