@@ -81,8 +81,8 @@ class TrendChart {
     });
     ctx.stroke();
 
-    // 2. Decentralized DSS Line (Electric Cyan)
-    ctx.strokeStyle = '#06b6d4';
+    // 2. Decentralized DSS Line (BEL Signal Amber — Primary)
+    ctx.strokeStyle = '#d97706';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     trendData.forEach((d, i) => {
@@ -97,7 +97,7 @@ class TrendChart {
     trendData.forEach((d, i) => {
       const x = padding.left + i * stepX;
       const yDec = h - padding.bottom - (d.decentralized_duration_sec / maxVal) * chartH;
-      ctx.fillStyle = '#06b6d4';
+      ctx.fillStyle = '#d97706';
       ctx.beginPath();
       ctx.arc(x, yDec, 3.5, 0, Math.PI * 2);
       ctx.fill();

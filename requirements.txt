@@ -1,0 +1,26 @@
+# SIH PS 26123 — Autonomous Fleet Hub (Bharat Electronics Limited)
+# Python dependencies
+
+# --- Core Framework ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+pyyaml>=6.0.1
+
+# --- Scientific / Optimization ---
+scipy>=1.13.0           # Hungarian task allocation (linear_sum_assignment)
+
+# --- AI / ML Layer (Research-Aligned: RL-guided Prioritized Planning + Isolation Forest) ---
+# DecisionTreeClassifier (max_depth=5) for hybrid priority weighting
+# IsolationForest for anomaly-based predictive maintenance
+scikit-learn>=1.4.0
+numpy>=1.26.0
+
+# --- Testing ---
+pytest>=8.2.0
+httpx>=0.27.0           # For async FastAPI test client
+anyio>=4.4.0
+
+# --- Optional: for training scripts ---
+# All training scripts (scripts/generate_training_data.py, scripts/train_priority_model.py)
+# use only scikit-learn + numpy which are already listed above.

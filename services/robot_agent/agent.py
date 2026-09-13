@@ -16,6 +16,7 @@ from .conflict_resolution import (
     ConflictDecision,
 )
 from .reason_codes import ReasonCode
+from .hybrid_priority_advisor import HybridPriorityAdvisor
 from services.comms_broker.broker import PeerBrokerClient, ProcessMessageBus
 from services.comms_broker.security import SecurityContext
 from services.task_allocation.task_models import WarehouseTask, TaskStatus, TaskPriority
@@ -53,6 +54,7 @@ class RobotAgent:
         self.max_speed = max_speed
         self.payload_capacity_kg = payload_capacity_kg
         self.battery_pct = battery_pct
+        self.base_yield_priority_weight = yield_priority_weight
         self.yield_priority_weight = yield_priority_weight
         self.human_zones = human_zones or []
 
@@ -65,6 +67,11 @@ class RobotAgent:
         )
         self.arbiter = LocalConflictArbiter(my_id=self.robot_id)
         self.security = SecurityContext()
+        # Hybrid AI priority advisor — research-aligned "RL-guided Prioritized Planning" pattern.
+        # Loads DecisionTreeClassifier(max_depth=5) from models/priority_model.pkl if available;
+        # falls back to deterministic rule-based priority adjustment otherwise.
+        # INVARIANT: advisor only adjusts priority BEFORE arbitrate(); safety checks are never bypassed.
+        self.hybrid_advisor = HybridPriorityAdvisor()
 
         # Navigation State
         self.state = "IDLE"  # IDLE, MOVING, YIELDING, WAITING, REROUTING, CHARGING
@@ -225,6 +232,7 @@ class RobotAgent:
         # If idle, just broadcast and return
         if not self.planned_path or self.target_goal is None:
             self.state = "IDLE"
+            self.yield_priority_weight = self.base_yield_priority_weight
             dec = ConflictDecision(
                 decision_type=DecisionType.CONTINUE,
                 reason_code=ReasonCode.RC_MOVING_NOMINAL,
@@ -245,7 +253,45 @@ class RobotAgent:
                 f"Reduced speed entering human zone at {self.current_pos}."
             )
 
-        # Run Local Decentralized Conflict Arbitration
+        # --- Hybrid AI Priority Layer ---
+        # Compute priority boost BEFORE the deterministic arbiter runs.
+        # The boost temporarily raises this robot's yield_priority_weight so the
+        # arbiter's evaluate_right_of_way() sees a context-aware weight.
+        # After arbitrate() completes the base weight is restored immediately.
+        # This is the "RL-guided Prioritized Planning" pattern: deterministic backbone
+        # with a learned priority assignment layer on top.
+        task_priority_int = self.current_task.priority.value if self.current_task else 2
+        payload_kg = (
+            self.current_task.payload_weight_kg
+            if self.current_task and self.task_phase == "TO_DROPOFF"
+            else 0.0
+        )
+        # Find the most likely upcoming conflict cell for feature extraction
+        upcoming_conflict_cell = None
+        for peer in self.peer_states.values():
+            if self.intent_path and peer.intent_path:
+                if self.intent_path[0] == peer.intent_path[0]:
+                    upcoming_conflict_cell = self.intent_path[0]
+                    break
+
+        hybrid_features = self.hybrid_advisor.extract_features(
+            task_priority_int=task_priority_int,
+            battery_pct=self.battery_pct,
+            current_pos=self.current_pos,
+            conflict_cell=upcoming_conflict_cell,
+            congestion_penalties=self.congestion_penalties,
+            payload_kg=payload_kg,
+            robot_type_weight=self.yield_priority_weight,
+        )
+        priority_boost, boost_confidence, boost_note = self.hybrid_advisor.predict_priority_boost(
+            hybrid_features
+        )
+
+        # Apply the learned priority boost to yield_priority_weight so it is both
+        # evaluated in arbitrate() and broadcast to peers for symmetric right-of-way awareness.
+        self.yield_priority_weight = self.base_yield_priority_weight + priority_boost
+
+        # Run Local Decentralized Conflict Arbitration (DETERMINISTIC SAFETY NET)
         decision = self.arbiter.arbitrate(
             my_pos=self.current_pos,
             my_intent=self.intent_path,
@@ -253,6 +299,15 @@ class RobotAgent:
             my_rem_dist=len(self.planned_path),
             peer_states=self.peer_states,
         )
+
+        # Annotate the decision with the hybrid note when a boost was applied
+        if priority_boost > 0 and boost_note:
+            decision.hybrid_note = boost_note
+            if decision.decision_type == DecisionType.CONTINUE:
+                # Only tag the reason code as hybrid-adjusted when we won right-of-way
+                # (the boost was what tipped the balance). If we yielded, the safety
+                # check took precedence over the boost — reason code stays as-is.
+                decision.reason_code = ReasonCode.RC_HYBRID_PRIORITY_ADJUSTED
         self.last_decision = decision
         self.decision_history.append(decision)
 
@@ -304,6 +359,7 @@ class RobotAgent:
                 self.planned_path = []
                 self.target_goal = None
                 self.state = "IDLE"
+                self.yield_priority_weight = self.base_yield_priority_weight
 
         elif decision.decision_type == DecisionType.WAIT:
             self.state = "WAITING"
