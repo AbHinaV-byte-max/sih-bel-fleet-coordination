@@ -21,3 +21,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# ML Artifacts (models/ directory)
+# Regenerate with: python scripts/generate_training_data.py && python scripts/train_priority_model.py
+models/*.pkl
+models/training_data.csv
+models/validation_metrics.json

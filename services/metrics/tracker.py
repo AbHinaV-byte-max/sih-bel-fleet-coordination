@@ -81,7 +81,12 @@ class FleetMetricsTracker:
 
         self.robot_telemetry[r_id] = telemetry
 
-        # Update predictive maintenance
+        # Feed full telemetry into the Isolation Forest rolling buffer (Feature 2).
+        # The IF detector needs the complete snapshot including state, speed, etc.
+        # to compute battery discharge rate, stuck_time_ratio, and speed_variance.
+        self.maintenance_classifier.ingest_telemetry(r_id, telemetry)
+
+        # Evaluate both maintenance layers (threshold hard-limits + IF anomaly detection)
         maint_eval = self.maintenance_classifier.evaluate_robot(
             robot_id=r_id,
             odometer_meters=telemetry.get("odometer_meters", 0.0),
@@ -143,7 +148,19 @@ class FleetMetricsTracker:
             "collision_incidents": self.collision_incidents,
             "trend_history": self.trend_history[-20:],  # Last 20 data points
             "robots_health": {
-                r_id: data.get("maintenance", {})
+                r_id: {
+                    # Full merged maintenance dict (threshold + IF fields)
+                    **data.get("maintenance", {}),
+                    # Convenience top-level flags for the dashboard
+                    "needs_attention": data.get("maintenance", {}).get("needs_attention", False),
+                    "anomaly_score": data.get("maintenance", {}).get("anomaly_score"),
+                    "predicted_failure_type": data.get("maintenance", {}).get(
+                        "predicted_failure_type", "normal"
+                    ),
+                    "estimated_days_to_failure": data.get("maintenance", {}).get(
+                        "estimated_days_to_failure"
+                    ),
+                }
                 for r_id, data in self.robot_telemetry.items()
             },
         }

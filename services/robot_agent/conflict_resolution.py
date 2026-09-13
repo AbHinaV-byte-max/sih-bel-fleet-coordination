@@ -31,13 +31,17 @@ class ConflictDecision:
     time_horizon_step: int
     explanation: str
     timestamp: float = 0.0
+    # Hybrid AI layer note — populated when the learned priority advisor
+    # adjusted this robot's priority weight before deterministic arbitration.
+    # None when the base DSS ran without any learned adjustment.
+    hybrid_note: Optional[str] = None
 
     def __post_init__(self):
         if self.timestamp == 0.0:
             self.timestamp = time.time()
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "decision_type": self.decision_type.value,
             "reason_code": self.reason_code.value,
             "conflicting_peer_id": self.conflicting_peer_id,
@@ -46,6 +50,9 @@ class ConflictDecision:
             "explanation": self.explanation,
             "timestamp": self.timestamp,
         }
+        if self.hybrid_note:
+            d["hybrid_note"] = self.hybrid_note
+        return d
 
 
 @dataclass

@@ -29,3 +29,8 @@ class ReasonCode(str, Enum):
     # Health & Maintenance
     RC_BATTERY_LOW_RETURN_TO_CHARGE = "RC_BATTERY_LOW_RETURN_TO_CHARGE"
     RC_MAINTENANCE_SERVICE_DUE = "RC_MAINTENANCE_SERVICE_DUE"
+
+    # Hybrid AI Layer (Research-Aligned: RL-guided Prioritized Planning pattern)
+    # Applied ONLY as a priority-weight adjustment before the deterministic arbiter runs.
+    # The deterministic DSS arbiter's safety checks are never bypassed.
+    RC_HYBRID_PRIORITY_ADJUSTED = "RC_HYBRID_PRIORITY_ADJUSTED"

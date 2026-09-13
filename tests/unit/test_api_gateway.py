@@ -98,3 +98,29 @@ async def test_dashboard_index_serving():
         assert resp.status_code == 200
         assert "DECENTRALIZED AMR FLEET COORDINATION" in resp.text
         assert "Bharat Electronics Limited" in resp.text
+
+
+@pytest.mark.anyio
+async def test_maintenance_metrics_endpoint():
+    """Verify /api/metrics/maintenance returns fleet-wide predictive maintenance data."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/metrics/maintenance")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "robots_health" in data
+        assert "active_alerts" in data
+        assert "total_alerts" in data
+
+
+@pytest.mark.anyio
+async def test_model_status_endpoint():
+    """Verify /api/model/status reports the hybrid priority model status."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/model/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "hybrid_priority_model_active" in data
+        assert "model_file_exists" in data
+        assert "research_note" in data
