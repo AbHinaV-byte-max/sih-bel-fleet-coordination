@@ -7,18 +7,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  /* ── Industrial Charcoal & Titanium Palette ────────────── */
-  --bg-root:    #0b0c0e;   /* Pitch matte carbon-charcoal */
-  --bg-surface: #111215;   /* Matte charcoal surface */
-  --bg-card:    #16171b;   /* Solid charcoal panel/card */
-  --bg-card-2:  #1c1d23;   /* Elevated charcoal card */
-  --bg-hover:   #23252d;   /* Subtle graphite hover */
-  --bg-active:  #2a2c36;   /* Active charcoal item */
+  /* ── Solid Obsidian Black & Carbon Palette ────────────── */
+  --bg-root:    #050608;   /* Deep solid obsidian black */
+  --bg-surface: #0a0c0f;   /* Deep solid black surface (header & sidebar) */
+  --bg-card:    #0e1014;   /* Solid black panel/card */
+  --bg-card-2:  #14161b;   /* Elevated black card container */
+  --bg-hover:   #1b1e26;   /* Subtle black hover */
+  --bg-active:  #222630;   /* Active black item */
 
-  /* ── Borders ────────────────────────────────────────── */
-  --border-faint:   rgba(255,255,255,0.06);
-  --border-subtle:  rgba(255,255,255,0.10);
-  --border-light:   rgba(255,255,255,0.18);
+  /* ── Borders & White Texture Highlights ──────────────── */
+  --border-faint:   rgba(255,255,255,0.07);
+  --border-subtle:  rgba(255,255,255,0.12);
+  --border-light:   rgba(255,255,255,0.22);
   --border-blue:    rgba(16,185,129,0.35);  /* Aliased: maps to operational emerald */
   --border-cyan:    rgba(56,189,248,0.35);
   --border-green:   rgba(16,185,129,0.40);
@@ -359,6 +359,9 @@ body {
   min-height: 0;
   overflow-y: auto;
   padding: 0;
+  background-color: var(--bg-root);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.065) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* ── KPI Strip ────────────────────────────────────────── */
@@ -429,13 +432,13 @@ body {
   justify-content: space-between;
   position: relative;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(90deg, #16171b 0%, #16171b 46%, rgba(22, 23, 27, 0.90) 70%, rgba(22, 23, 27, 0.20) 100%),
-              url('/static/img/warehouse_banner.jpg') right center / cover no-repeat;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(90deg, #0e1014 0%, #0e1014 36%, rgba(14, 16, 20, 0.94) 56%, rgba(14, 16, 20, 0.20) 100%),
+              url('/static/img/warehouse_banner_v2.jpg') right center / cover no-repeat;
   overflow: hidden;
   margin-bottom: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
-  min-height: 195px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.85), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  min-height: 200px;
 }
 .hero-banner-content {
   flex: 1;
@@ -487,17 +490,19 @@ body {
   font-size: 12.5px;
   font-weight: 600;
   color: #ffffff;
-  background: #1f222a;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  backdrop-filter: blur(10px);
   transition: all var(--ease);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.20);
 }
 .hero-overview-btn:hover {
-  background: #272a34;
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.65);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.30);
+  color: #ffffff;
 }
 .hero-banner-visual {
   position: absolute;
@@ -509,21 +514,21 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 7px 15px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #e2e8f0;
-  background: rgba(18, 19, 23, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  background: rgba(10, 12, 16, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.20);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
   transition: all var(--ease);
 }
 .hero-map-btn:hover {
-  background: #252832;
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.40);
   color: #ffffff;
 }
 
@@ -548,9 +553,13 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: border-color var(--ease);
+  transition: all var(--ease);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
-.overview-kpi-card:hover { border-color: var(--border-light); }
+.overview-kpi-card:hover {
+  border-color: var(--border-light);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+}
 .kpi-icon-box {
   width: 38px;
   height: 38px;
@@ -840,6 +849,7 @@ body {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 }
 .panel + .panel { margin-top: 12px; }
 

@@ -131,7 +131,7 @@ class WarehouseCanvas {
     ctx.clearRect(0, 0, W, H);
 
     // Background
-    ctx.fillStyle = '#0f1013';
+    ctx.fillStyle = '#06070a';
     ctx.fillRect(0, 0, W, H);
 
     if (!this.snapshot) {
