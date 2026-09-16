@@ -131,7 +131,7 @@ class WarehouseCanvas {
     ctx.clearRect(0, 0, W, H);
 
     // Background
-    ctx.fillStyle = '#070c18';
+    ctx.fillStyle = '#0f1013';
     ctx.fillRect(0, 0, W, H);
 
     if (!this.snapshot) {
@@ -200,13 +200,13 @@ class WarehouseCanvas {
       for (const [ox, oy] of wh.obstacles) {
         const s = this._toScreen(ox, oy);
         // Draw rack
-        ctx.fillStyle = '#1e2e48';
+        ctx.fillStyle = '#1c1e24';
         ctx.fillRect(s.x + 1, s.y + 1, cs - 2, cs - 2);
-        ctx.strokeStyle = '#2d4060';
+        ctx.strokeStyle = '#2b2e37';
         ctx.lineWidth   = 1;
         ctx.strokeRect(s.x + 1, s.y + 1, cs - 2, cs - 2);
         // Rack shelf lines
-        ctx.strokeStyle = 'rgba(56,108,200,0.25)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.lineWidth   = 0.5;
         for (let shelf = 1; shelf < 3; shelf++) {
           const sy = s.y + (cs/3)*shelf;
@@ -450,14 +450,14 @@ class WarehouseCanvas {
 
   _stateColor(state) {
     const map = {
-      IDLE:      'rgba(100,116,139,0.9)',
-      ASSIGNED:  'rgba(168,85,247,0.9)',
-      PLANNING:  'rgba(168,85,247,0.9)',
-      MOVING:    'rgba(56,189,248,0.9)',
+      IDLE:      'rgba(148,163,184,0.85)',
+      ASSIGNED:  'rgba(129,140,248,0.9)',
+      PLANNING:  'rgba(56,189,248,0.9)',
+      MOVING:    'rgba(16,185,129,0.9)',
       WAITING:   'rgba(245,158,11,0.9)',
-      YIELDING:  'rgba(249,115,22,0.9)',
+      YIELDING:  'rgba(251,191,36,0.9)',
       REROUTING: 'rgba(244,63,94,0.9)',
-      CHARGING:  'rgba(16,185,129,0.9)',
+      CHARGING:  'rgba(245,158,11,0.9)',
       DEGRADED:  'rgba(244,63,94,0.75)',
       FAILED:    'rgba(239,68,68,0.9)',
       COMPLETED: 'rgba(16,185,129,0.9)',

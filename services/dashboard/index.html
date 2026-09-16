@@ -18,10 +18,10 @@
   <header class="app-header" role="banner">
     <div class="header-brand">
       <!-- Stylized glowing A logo mark matching reference image -->
-      <div class="brand-mark" aria-label="AMR Fleet Coordination" style="background:linear-gradient(135deg, #0ea5e9, #2563eb);box-shadow:0 0 12px rgba(14,165,233,0.4)">
+      <div class="brand-mark" aria-label="AMR Fleet Coordination">
         <svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px">
           <path d="M12 2L3 20h4.5l2-4.5h5l2 4.5H21L12 2z" fill="#ffffff"/>
-          <path d="M12 6.8L9.8 12h4.4L12 6.8z" fill="#070a13"/>
+          <path d="M12 6.8L9.8 12h4.4L12 6.8z" fill="#10b981"/>
         </svg>
       </div>
       <div>
@@ -190,7 +190,7 @@
               Decentralized agents, real-time coordination, and AI-driven path planning for efficient and safe material movement.
             </p>
             <div class="hero-actions">
-              <button class="btn btn-primary" id="btnHeroOverview">System Overview →</button>
+              <button class="hero-overview-btn" id="btnHeroOverview">System Overview →</button>
             </div>
           </div>
           <div class="hero-banner-visual">
@@ -399,7 +399,7 @@
             <div class="panel">
               <div class="panel-header">
                 <div class="panel-title">Recent Activity</div>
-                <a id="linkViewAllActivity" href="#" style="color:var(--blue-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
+                <a id="linkViewAllActivity" href="#" style="color:var(--green-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
               </div>
               <div class="activity-feed" id="overviewActivityFeed">
                 <!-- populated by JS -->
@@ -410,7 +410,7 @@
             <div class="panel">
               <div class="panel-header">
                 <div class="panel-title">Alerts</div>
-                <a id="linkViewAllAlerts" href="#" style="color:var(--blue-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
+                <a id="linkViewAllAlerts" href="#" style="color:var(--green-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
               </div>
               <div id="overviewAlertsBox" style="padding:13px 14px;font-size:11.5px;color:var(--text-secondary)">
                 <div style="display:flex;align-items:center;gap:8px">
