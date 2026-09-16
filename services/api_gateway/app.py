@@ -271,6 +271,83 @@ async def submit_warehouse_task(req: TaskSubmitRequest):
     return {"status": "submitted", "task": task.to_dict()}
 
 
+class ScenarioRequest(BaseModel):
+    scenario_id: str = Field(..., description="Scenario ID: S1, S2, S3, S4, S5, S6, S7, S8, S9, or S10")
+    seed: int = Field(42, description="Random seed for reproducibility")
+
+
+class DynamicObstacleRequest(BaseModel):
+    x: int
+    y: int
+    action: str = Field("add", description="'add' or 'remove'")
+
+
+class SimulatorCommandRequest(BaseModel):
+    command: str = Field(..., description="Command type: 'reset', 'speed', 'pause', 'resume'")
+    params: dict = Field(default_factory=dict)
+
+
+@app.post("/api/scenarios/run", tags=["Simulation Controls"])
+async def run_scenario(req: ScenarioRequest):
+    """
+    Executes a named scenario from the S1–S10 taxonomy (§14) with a reproducible seed.
+    Each scenario modifies the environment to produce specific coordination challenges:
+    - S1: Normal traffic | S2: Crossing conflict | S3: Narrow aisle | S4: Deadlock
+    - S5: Blocked aisle | S6: Robot failure | S7: Comms degradation | S8: Emergency task
+    - S9: Battery constraint | S10: Congestion concentration
+    """
+    result = bridge.run_scenario(scenario_id=req.scenario_id, seed=req.seed)
+    snapshot = bridge.get_fleet_snapshot()
+    await ws_manager.broadcast(snapshot)
+    return result
+
+
+@app.post("/api/obstacles/dynamic", tags=["Simulation Controls"])
+async def manage_dynamic_obstacle(req: DynamicObstacleRequest):
+    """
+    Adds or removes a dynamic obstacle (§8.3) at a given grid cell.
+    Dynamic obstacles represent fallen boxes, blocked aisles, or temporary restricted zones.
+    All robot A* pathfinders are updated immediately.
+    """
+    cell = (req.x, req.y)
+    if req.action == "add":
+        result = bridge.add_dynamic_obstacle(cell)
+        action_done = "added"
+    elif req.action == "remove":
+        result = bridge.remove_dynamic_obstacle(cell)
+        action_done = "removed"
+    else:
+        raise HTTPException(status_code=400, detail="action must be 'add' or 'remove'")
+    snapshot = bridge.get_fleet_snapshot()
+    await ws_manager.broadcast(snapshot)
+    return {"status": "success", "action": action_done, "cell": list(cell), "total_dynamic": len(bridge.dynamic_obstacles)}
+
+
+@app.post("/api/simulator/command", tags=["External Simulation Bridge (Isaac Sim / Omniverse)"])
+async def simulator_command(req: SimulatorCommandRequest):
+    """
+    Omniverse / Isaac Sim bridge command endpoint (§8.5).
+    Supports: 'reset' (reset all robot positions), 'speed' (set sim speed factor),
+    'pause' / 'resume' (control sim loop).
+    """
+    if req.command == "reset":
+        for robot in bridge.robots.values():
+            robot.current_pos = robot.pathfinder.start_pos if hasattr(robot.pathfinder, 'start_pos') else (0, 0)
+        return {"status": "reset"}
+    elif req.command == "speed":
+        factor = req.params.get("factor", 1.0)
+        bridge.sim_speed_factor = float(factor)
+        return {"status": "ok", "sim_speed_factor": bridge.sim_speed_factor}
+    elif req.command == "pause":
+        bridge.is_running = False
+        return {"status": "paused"}
+    elif req.command == "resume":
+        bridge.is_running = True
+        return {"status": "running"}
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown command: {req.command}")
+
+
 @app.post("/api/simulation/benchmark", tags=["Simulation Controls"])
 async def trigger_benchmark():
     """

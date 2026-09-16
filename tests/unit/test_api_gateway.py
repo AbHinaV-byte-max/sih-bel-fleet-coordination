@@ -96,7 +96,7 @@ async def test_dashboard_index_serving():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/")
         assert resp.status_code == 200
-        assert "DECENTRALIZED AMR FLEET COORDINATION" in resp.text
+        assert "Autonomous Fleet Hub" in resp.text
         assert "Bharat Electronics Limited" in resp.text
 
 

@@ -1,112 +1,95 @@
 /**
- * Mission Completion Time Trend Chart Renderer
- * Compares Naive Baseline vs. Decentralized DSS over runtime session.
- * SIH 26123 - Bharat Electronics Limited (BEL)
+ * Trend Chart — Mission Completion Duration vs Baseline
+ * SIH 26123 — Bharat Electronics Limited (BEL)
+ * Uses Chart.js (loaded from CDN in index.html)
  */
 
 class TrendChart {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext('2d');
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-  }
-
-  resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
-    this.ctx.scale(dpr, dpr);
-    this.displayWidth = rect.width;
-    this.displayHeight = rect.height;
-  }
-
-  render(trendData) {
-    if (!trendData || trendData.length === 0) return;
-    const ctx = this.ctx;
-    const w = this.displayWidth || 600;
-    const h = this.displayHeight || 180;
-    const padding = { top: 16, right: 28, bottom: 22, left: 36 };
-
-    ctx.clearRect(0, 0, w, h);
-
-    const chartW = w - padding.left - padding.right;
-    const chartH = h - padding.top - padding.bottom;
-
-    // Determine max value for Y scale
-    let maxVal = 10;
-    trendData.forEach(d => {
-      maxVal = Math.max(maxVal, d.baseline_duration_sec, d.decentralized_duration_sec);
-    });
-    maxVal = Math.ceil(maxVal * 1.15);
-
-    // Axes
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, padding.top);
-    ctx.lineTo(padding.left, h - padding.bottom);
-    ctx.lineTo(w - padding.right, h - padding.bottom);
-    ctx.stroke();
-
-    // Y Gridlines and ticks
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 10px "JetBrains Mono", monospace';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= 3; i++) {
-      const val = Math.round((maxVal / 3) * i);
-      const y = h - padding.bottom - (chartH / 3) * i;
-      ctx.fillText(`${val}s`, padding.left - 6, y + 3);
-      
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-      ctx.beginPath();
-      ctx.moveTo(padding.left, y);
-      ctx.lineTo(w - padding.right, y);
-      ctx.stroke();
+    this.chart  = null;
+    if (this.canvas && typeof Chart !== 'undefined') {
+      this._init();
     }
+  }
 
-    const n = trendData.length;
-    const stepX = n > 1 ? chartW / (n - 1) : chartW;
+  _init() {
+    Chart.defaults.color = '#8fa3c4';
+    Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    Chart.defaults.font.size   = 11;
 
-    // 1. Baseline Line (Warm Amber)
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    trendData.forEach((d, i) => {
-      const x = padding.left + i * stepX;
-      const y = h - padding.bottom - (d.baseline_duration_sec / maxVal) * chartH;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    this.chart = new Chart(this.canvas, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Decentralized DSS',
+            data: [],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56,189,248,0.08)',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#38bdf8',
+            tension: 0.4,
+            fill: true,
+          },
+          {
+            label: 'Naive Baseline',
+            data: [],
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.06)',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#f59e0b',
+            tension: 0.4,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive:          true,
+        maintainAspectRatio: false,
+        animation:           { duration: 200 },
+        interaction:         { intersect: false, mode: 'index' },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { boxWidth: 10, padding: 14 },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(8,12,22,0.92)',
+            borderColor:     'rgba(148,163,184,0.18)',
+            borderWidth:     1,
+            titleColor:      '#f0f4fc',
+            bodyColor:       '#8fa3c4',
+          },
+        },
+        scales: {
+          x: {
+            grid:  { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#5a7099', maxTicksLimit: 10 },
+            title: { display: true, text: 'Task #', color: '#5a7099' },
+          },
+          y: {
+            grid:  { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#5a7099' },
+            title: { display: true, text: 'Duration (ticks)', color: '#5a7099' },
+          },
+        },
+      },
     });
-    ctx.stroke();
+  }
 
-    // 2. Decentralized DSS Line (BEL Signal Amber — Primary)
-    ctx.strokeStyle = '#d97706';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    trendData.forEach((d, i) => {
-      const x = padding.left + i * stepX;
-      const y = h - padding.bottom - (d.decentralized_duration_sec / maxVal) * chartH;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+  update(trendHistory) {
+    if (!this.chart || !Array.isArray(trendHistory) || trendHistory.length === 0) return;
+    const labels = trendHistory.map(d => `#${d.task_number}`);
+    const dssData = trendHistory.map(d => d.running_avg_decentralized);
+    const baseData = trendHistory.map(d => d.running_avg_baseline);
 
-    // Draw data point dots
-    trendData.forEach((d, i) => {
-      const x = padding.left + i * stepX;
-      const yDec = h - padding.bottom - (d.decentralized_duration_sec / maxVal) * chartH;
-      ctx.fillStyle = '#d97706';
-      ctx.beginPath();
-      ctx.arc(x, yDec, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      const yBase = h - padding.bottom - (d.baseline_duration_sec / maxVal) * chartH;
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(x, yBase, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    this.chart.data.labels             = labels;
+    this.chart.data.datasets[0].data   = dssData;
+    this.chart.data.datasets[1].data   = baseData;
+    this.chart.update('none');
   }
 }

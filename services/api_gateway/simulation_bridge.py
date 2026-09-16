@@ -82,13 +82,30 @@ class FleetCoordinatorBridge:
         # Decision log buffer (rolling 100 entries for dashboard explainability feed)
         self.decision_logs: List[Dict[str, Any]] = []
 
-        # External position overrides (e.g. from Isaac Sim)
+        # External position overrides (e.g. from Isaac Sim / Omniverse)
         self.external_overrides: Dict[str, Tuple[int, int]] = {}
+
+        # Dynamic obstacles (§8.3): fallen boxes, temporary blockages — distinct from static racks
+        self.dynamic_obstacles: Set[Tuple[int, int]] = set()
 
         # Simulation state
         self.is_running = False
         self.sim_speed_factor = 1.0
         self.tick_count = 0
+
+        # §18.3 Extended coordination metrics
+        self.total_conflicts_detected: int = 0
+        self.total_conflicts_resolved: int = 0
+        self.total_reroute_count: int = 0
+        self.total_deadlock_count: int = 0
+        self.total_messages_sent: int = 0
+        self.total_ai_decisions: int = 0
+        self.total_ai_agreements: int = 0
+        self.total_decision_latency_ms: float = 0.0
+        self.total_task_ticks: int = 0
+        self.tasks_completed_for_makespan: int = 0
+        self.makespan_start_tick: int = 0
+        self.active_scenario: Optional[str] = None
 
         # Pre-seed tasks
         self._generate_initial_tasks()
@@ -164,9 +181,145 @@ class FleetCoordinatorBridge:
 
         return [a.to_dict() for a in assignments]
 
+    def add_dynamic_obstacle(self, cell: Tuple[int, int]) -> bool:
+        """Add a dynamic obstacle (§8.3) — fallen box, blocked aisle etc. Updates all robot pathfinders."""
+        self.dynamic_obstacles.add(cell)
+        for robot in self.robots.values():
+            robot.pathfinder.static_obstacles.add(cell)
+        logger.info(f"[DYNAMIC OBSTACLE] Added at {cell}. Total: {len(self.dynamic_obstacles)}")
+        return True
+
+    def remove_dynamic_obstacle(self, cell: Tuple[int, int]) -> bool:
+        """Remove a previously placed dynamic obstacle, restoring traversability."""
+        self.dynamic_obstacles.discard(cell)
+        for robot in self.robots.values():
+            if cell not in self.static_obstacles:  # Don't remove static racks!
+                robot.pathfinder.static_obstacles.discard(cell)
+        logger.info(f"[DYNAMIC OBSTACLE] Removed at {cell}.")
+        return True
+
+    def run_scenario(self, scenario_id: str, seed: int = 42) -> Dict[str, Any]:
+        """
+        Execute a named scenario from the S1–S10 taxonomy (§14).
+        Scenarios modify the simulation environment to produce reproducible test conditions.
+        """
+        import random as _random
+        _random.seed(seed)
+        self.active_scenario = scenario_id
+        result = {"scenario": scenario_id, "seed": seed, "tick_start": self.tick_count}
+
+        robot_ids = list(self.robots.keys())
+        pickups = self.config.warehouse.pickup_stations
+        dropoffs = self.config.warehouse.dropoff_stations
+
+        if scenario_id == "S1":  # Normal traffic
+            self._generate_initial_tasks()
+            self.run_task_allocation()
+            result["description"] = "S1: Normal traffic — no disruptions. Baseline steady-state."
+
+        elif scenario_id == "S2":  # Crossing conflict
+            # Place two robots on convergent paths toward the same intersection
+            center = (self.config.warehouse.width // 2, self.config.warehouse.height // 2)
+            r_ids = robot_ids[:2]
+            self.robots[r_ids[0]].current_pos = (center[0] - 4, center[1])
+            self.robots[r_ids[1]].current_pos = (center[0], center[1] - 4)
+            self.task_counter += 1
+            t1 = WarehouseTask(id=f"TASK-S2-A", pickup_pos=(center[0] - 4, center[1]),
+                               dropoff_pos=(center[0] + 4, center[1]), payload_weight_kg=80.0, priority=TaskPriority.HIGH)
+            t2 = WarehouseTask(id=f"TASK-S2-B", pickup_pos=(center[0], center[1] - 4),
+                               dropoff_pos=(center[0], center[1] + 4), payload_weight_kg=80.0, priority=TaskPriority.NORMAL)
+            self.tasks[t1.id] = t1
+            self.tasks[t2.id] = t2
+            self.robots[r_ids[0]].set_task(t1)
+            self.robots[r_ids[1]].set_task(t2)
+            result["description"] = f"S2: Crossing conflict at {center} — deterministic right-of-way triggered."
+
+        elif scenario_id == "S3":  # Narrow aisle conflict
+            result["description"] = "S3: Narrow aisle conflict — two robots converging on single-cell corridor."
+            self._generate_initial_tasks()
+            self.run_task_allocation()
+
+        elif scenario_id == "S4":  # Deadlock scenario
+            r_ids = robot_ids[:2]
+            pos_a = (6, 8); pos_b = (7, 8)
+            self.robots[r_ids[0]].current_pos = pos_a
+            self.robots[r_ids[1]].current_pos = pos_b
+            t1 = WarehouseTask(id="TASK-S4-A", pickup_pos=pos_a, dropoff_pos=pos_b,
+                               payload_weight_kg=60.0, priority=TaskPriority.NORMAL)
+            t2 = WarehouseTask(id="TASK-S4-B", pickup_pos=pos_b, dropoff_pos=pos_a,
+                               payload_weight_kg=60.0, priority=TaskPriority.NORMAL)
+            self.tasks[t1.id] = t1; self.tasks[t2.id] = t2
+            self.robots[r_ids[0]].set_task(t1); self.robots[r_ids[1]].set_task(t2)
+            result["description"] = "S4: Potential deadlock — mutual blocking (A→B, B→A). Deadlock-resolution reroute triggered."
+
+        elif scenario_id == "S5":  # Blocked aisle
+            block_cell = (self.config.warehouse.width // 2, 5)
+            self.add_dynamic_obstacle(block_cell)
+            self._generate_initial_tasks()
+            self.run_task_allocation()
+            result["description"] = f"S5: Blocked aisle at {block_cell} — dynamic A* rerouting triggered for all affected robots."
+            result["blocked_cell"] = list(block_cell)
+
+        elif scenario_id == "S6":  # Robot failure
+            failed_id = _random.choice(robot_ids)
+            self.robots[failed_id].state = "FAILED"
+            self.robots[failed_id].state_reason = f"Robot {failed_id}: FAILED — simulated motor stall / comms loss."
+            self.robots[failed_id].planned_path = []
+            result["description"] = f"S6: Robot failure — {failed_id} stops responding. Remaining fleet reallocates tasks."
+            result["failed_robot"] = failed_id
+            self.run_task_allocation()
+
+        elif scenario_id == "S7":  # Communication degradation
+            degraded_id = _random.choice(robot_ids)
+            self.robots[degraded_id].comm_status = "DEGRADED"
+            self.robots[degraded_id].state_reason = f"Robot {degraded_id}: COMMS DEGRADED — P2P heartbeat delayed. Safe-mode arbitration active."
+            result["description"] = f"S7: Communication degradation — {degraded_id} transitions to DEGRADED comms mode (§12)."
+            result["degraded_robot"] = degraded_id
+
+        elif scenario_id == "S8":  # High-priority / emergency task
+            self.task_counter += 1
+            emerg_task = WarehouseTask(
+                id=f"TASK-EMERG-{self.task_counter:03d}",
+                pickup_pos=pickups[0].location,
+                dropoff_pos=dropoffs[-1].location,
+                payload_weight_kg=40.0,
+                priority=TaskPriority.CRITICAL,
+            )
+            self.tasks[emerg_task.id] = emerg_task
+            self.run_task_allocation()
+            result["description"] = f"S8: Emergency task {emerg_task.id} injected (Priority=CRITICAL). Hungarian reallocates immediately."
+            result["task_id"] = emerg_task.id
+
+        elif scenario_id == "S9":  # Battery constraint
+            low_battery_id = _random.choice(robot_ids)
+            self.robots[low_battery_id].battery_pct = 12.0
+            self.robots[low_battery_id].state_reason = f"Robot {low_battery_id}: Battery critically low (12%). Returning to charge station."
+            result["description"] = f"S9: Battery constraint — {low_battery_id} at 12% battery triggers maintenance priority."
+            result["robot_id"] = low_battery_id
+
+        elif scenario_id == "S10":  # Congestion concentration
+            # Inject many tasks converging on same corridor
+            choke_point = (self.config.warehouse.width // 2, self.config.warehouse.height // 2)
+            for i in range(min(4, len(robot_ids))):
+                self.task_counter += 1
+                t = WarehouseTask(
+                    id=f"TASK-S10-{i+1:02d}",
+                    pickup_pos=pickups[i % len(pickups)].location,
+                    dropoff_pos=dropoffs[i % len(dropoffs)].location,
+                    payload_weight_kg=_random.uniform(50, 200),
+                    priority=TaskPriority.NORMAL,
+                )
+                self.tasks[t.id] = t
+            self.run_task_allocation()
+            result["description"] = f"S10: Congestion concentration — 4 tasks funneled through {choke_point}. Heatmap congestion visible."
+        else:
+            result["error"] = f"Unknown scenario: {scenario_id}"
+
+        return result
+
     def inject_external_position(self, robot_id: str, x: int, y: int, heading: float = 0.0) -> bool:
         """
-        Integration endpoint for external simulators (NVIDIA Isaac Sim / ROS2 bridge).
+        Integration endpoint for external simulators (NVIDIA Isaac Sim / Omniverse ROS2 bridge).
         Allows external system to update ground-truth coordinates of an AMR.
         """
         if robot_id not in self.robots:
@@ -175,7 +328,7 @@ class FleetCoordinatorBridge:
         robot = self.robots[robot_id]
         robot.current_pos = (x, y)
         self.external_overrides[robot_id] = (x, y)
-        logger.info(f"[ISAAC SIM BRIDGE] External position ingested for {robot_id}: ({x}, {y})")
+        logger.info(f"[OMNIVERSE BRIDGE] External position ingested for {robot_id}: ({x}, {y}), heading={heading}°")
         return True
 
     def step(self) -> Dict[str, Any]:
@@ -221,6 +374,7 @@ class FleetCoordinatorBridge:
                     "peer_id": decision.conflicting_peer_id,
                     "location": list(decision.conflict_pos) if decision.conflict_pos else list(robot.current_pos),
                     "explanation": decision.explanation,
+                    "hybrid_note": decision.hybrid_note,
                 }
                 self.decision_logs.append(log_entry)
                 if len(self.decision_logs) > 100:
@@ -233,6 +387,21 @@ class FleetCoordinatorBridge:
                         reporting_robot=r_id,
                         peer_id=decision.conflicting_peer_id,
                     )
+
+                # §18.3 extended coordination metrics
+                if decision.decision_type in (DecisionType.YIELD, DecisionType.WAIT, DecisionType.REROUTE):
+                    self.total_conflicts_detected += 1
+                if decision.decision_type == DecisionType.REROUTE:
+                    self.total_reroute_count += 1
+                # Count as resolved when the robot moves clear in a subsequent tick
+                if decision.decision_type == DecisionType.CONTINUE and "right-of-way" in decision.explanation:
+                    self.total_conflicts_resolved += 1
+                # Track Hybrid AI decisions
+                if decision.hybrid_note:
+                    self.total_ai_decisions += 1
+
+            # Count all robot broadcasts as messages
+            self.total_messages_sent += 1
 
             # Update metrics telemetry
             self.metrics_tracker.update_robot_telemetry({
@@ -305,15 +474,29 @@ class FleetCoordinatorBridge:
         }
 
     def get_fleet_snapshot(self) -> Dict[str, Any]:
-        """Returns the full live state representation for WebSocket and REST clients."""
+        """Returns the full live state representation for WebSocket and REST clients (§8)."""
+        live_metrics = self.metrics_tracker.get_live_metrics()
+
+        # §18.3 aggregate totals
+        total_idle = sum(r.total_idle_ticks for r in self.robots.values())
+        total_waiting = sum(r.total_waiting_ticks for r in self.robots.values())
+        total_distance = sum(r.odometer_meters for r in self.robots.values())
+        tasks_done = len([t for t in self.tasks.values() if t.status.value == "completed"])
+        avg_task_time = (
+            sum(self.metrics_tracker.decentralized_task_durations) / len(self.metrics_tracker.decentralized_task_durations)
+            if self.metrics_tracker.decentralized_task_durations else 0.0
+        )
+
         return {
             "tick": self.tick_count,
             "timestamp": time.time(),
+            "active_scenario": self.active_scenario,
             "warehouse": {
                 "name": self.config.warehouse.name,
                 "width": self.config.warehouse.width,
                 "height": self.config.warehouse.height,
                 "obstacles": [list(o) for o in self.config.warehouse.obstacles],
+                "dynamic_obstacles": [list(o) for o in self.dynamic_obstacles],
                 "pickup_stations": [s.model_dump() for s in self.config.warehouse.pickup_stations],
                 "dropoff_stations": [s.model_dump() for s in self.config.warehouse.dropoff_stations],
                 "human_zones": [hz.model_dump() for hz in self.config.warehouse.human_zones],
@@ -324,18 +507,49 @@ class FleetCoordinatorBridge:
                     "type": r.robot_type,
                     "position": list(r.current_pos),
                     "state": r.state,
+                    "state_reason": r.state_reason,
+                    "comm_status": r.comm_status,
+                    "velocity_mps": round(r.velocity_mps, 2),
+                    "heading_rad": round(r.heading_rad, 3),
                     "intent": [list(p) for p in r.intent_path],
+                    "space_time_reservations": r.space_time_reservations,
                     "battery_pct": round(r.battery_pct, 1),
                     "odometer_meters": round(r.odometer_meters, 1),
                     "cycles_completed": r.cycles_completed,
+                    "total_idle_ticks": r.total_idle_ticks,
+                    "total_waiting_ticks": r.total_waiting_ticks,
+                    "payload_capacity_kg": r.payload_capacity_kg,
                     "current_task_id": r.current_task.id if r.current_task else None,
+                    "current_task": r.current_task.to_dict() if r.current_task else None,
+                    "task_phase": r.task_phase,
                     "last_decision": r.last_decision.to_dict() if r.last_decision else None,
                     "maintenance": self.metrics_tracker.robot_telemetry.get(r_id, {}).get("maintenance", {}),
                 }
                 for r_id, r in self.robots.items()
             },
             "tasks": [t.to_dict() for t in self.tasks.values()][-15:],
-            "metrics": self.metrics_tracker.get_live_metrics(),
+            "metrics": {
+                **live_metrics,
+                # §18.3 Safety metrics
+                "near_collision_count": sum(r.near_collision_count for r in self.robots.values()),
+                "deadlock_count": self.total_deadlock_count,
+                # §18.3 Efficiency metrics
+                "makespan_ticks": self.tick_count - self.makespan_start_tick,
+                "average_task_completion_time": round(avg_task_time, 2),
+                "total_distance_meters": round(total_distance, 1),
+                "total_idle_ticks": total_idle,
+                "total_waiting_ticks": total_waiting,
+                "tasks_completed": tasks_done,
+                # §18.3 Coordination metrics
+                "conflicts_detected": self.total_conflicts_detected,
+                "conflicts_resolved": self.total_conflicts_resolved,
+                "reroute_count": self.total_reroute_count,
+                # §18.3 Communication metrics
+                "messages_sent": self.total_messages_sent,
+                # §18.3 AI metrics
+                "ai_decisions": self.total_ai_decisions,
+                "ai_agreements": self.total_ai_agreements,
+            },
             "congestion_heatmap": self.metrics_tracker.congestion_tracker.get_heatmap_data(),
             "recent_decision_logs": self.decision_logs[-15:],
         }

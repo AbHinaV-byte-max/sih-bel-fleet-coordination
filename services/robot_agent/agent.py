@@ -73,17 +73,35 @@ class RobotAgent:
         # INVARIANT: advisor only adjusts priority BEFORE arbitrate(); safety checks are never bypassed.
         self.hybrid_advisor = HybridPriorityAdvisor()
 
-        # Navigation State
-        self.state = "IDLE"  # IDLE, MOVING, YIELDING, WAITING, REROUTING, CHARGING
+        # Navigation State — §9 closed state set
+        # IDLE | ASSIGNED | PLANNING | MOVING | WAITING | YIELDING | REROUTING | CHARGING | DEGRADED | FAILED | COMPLETED
+        self.state = "IDLE"
+        self.state_reason: str = f"Robot {robot_id}: Idle at start position."
         self.current_task: Optional[WarehouseTask] = None
         self.task_phase: str = "NONE"  # NONE, TO_PICKUP, TO_DROPOFF
         self.planned_path: List[Tuple[int, int]] = []
         self.target_goal: Optional[Tuple[int, int]] = None
 
+        # Motion telemetry (§8.7)
+        self.velocity_mps: float = 0.0          # current speed in m/s
+        self.heading_rad: float = 0.0           # heading in radians (0 = +X / East)
+        self.prev_pos: Optional[Tuple[int, int]] = None  # for velocity calculation
+
+        # Communication status (§8.1, §12): HEALTHY | DEGRADED | SAFE_MODE
+        self.comm_status: str = "HEALTHY"
+        self.last_heartbeat_tick: int = 0
+        self.missed_heartbeats: int = 0
+
+        # Space-time reservations (§11.2): list of {"cell": [x,y], "tick_from": int, "tick_to": int}
+        self.space_time_reservations: List[Dict[str, Any]] = []
+
         # Peer tracking and telemetry
         self.peer_states: Dict[str, PeerRobotState] = {}
         self.odometer_meters: float = 0.0
         self.cycles_completed: int = 0
+        self.total_idle_ticks: int = 0
+        self.total_waiting_ticks: int = 0
+        self.near_collision_count: int = 0
         self.decision_history: List[ConflictDecision] = []
         self.last_decision: Optional[ConflictDecision] = None
         self.congestion_penalties: Dict[Tuple[int, int], float] = {}
@@ -108,11 +126,13 @@ class RobotAgent:
         return self.planned_path[:5]
 
     def set_task(self, task: WarehouseTask) -> bool:
-        """Assigns a task to this AMR and initiates path planning to pickup."""
+        """Assigns a task to this AMR and initiates path planning to pickup (§9: ASSIGNED → PLANNING → MOVING)."""
         self.current_task = task
         self.task_phase = "TO_PICKUP"
         self.target_goal = task.pickup_pos
-        self.state = "MOVING"
+        self.state = "ASSIGNED"
+        self.state_reason = f"Robot {self.robot_id}: Task {task.id} assigned. Priority={task.priority.value}, Payload={task.payload_weight_kg}kg."
+        self.state = "PLANNING"
 
         path = self.pathfinder.find_path(
             start=self.current_pos,
@@ -192,8 +212,26 @@ class RobotAgent:
                 penalty = payload.get("penalty", 2.0)
                 self.congestion_penalties[cell] = penalty
 
+    def _update_velocity_heading(self) -> None:
+        """Updates velocity_mps and heading_rad based on position delta (§8.7)."""
+        import math
+        if self.prev_pos is not None and self.current_pos != self.prev_pos:
+            dx = self.current_pos[0] - self.prev_pos[0]
+            dy = self.current_pos[1] - self.prev_pos[1]
+            self.velocity_mps = self.max_speed  # 1 cell per tick = max_speed m/s
+            self.heading_rad = math.atan2(dy, dx)
+        else:
+            self.velocity_mps = 0.0
+
+    def _build_space_time_reservations(self, tick: int) -> None:
+        """Builds §11.2 space-time reservations from the planned path."""
+        self.space_time_reservations = [
+            {"cell": list(cell), "tick_from": tick + i, "tick_to": tick + i + 1}
+            for i, cell in enumerate(self.planned_path[:8])
+        ]
+
     def broadcast_state(self) -> None:
-        """Publishes local state and planned intent to peer-to-peer network."""
+        """Publishes local state and planned intent to peer-to-peer network (§8.6 STATE_UPDATE)."""
         if not self.comms_client:
             return
 
@@ -202,7 +240,12 @@ class RobotAgent:
             "robot_type": self.robot_type,
             "position": list(self.current_pos),
             "state": self.state,
+            "state_reason": self.state_reason,
+            "comm_status": self.comm_status,
+            "velocity_mps": round(self.velocity_mps, 2),
+            "heading_rad": round(self.heading_rad, 3),
             "intent": [list(p) for p in self.intent_path],
+            "space_time_reservations": self.space_time_reservations,
             "priority_weight": self.yield_priority_weight,
             "remaining_distance": len(self.planned_path),
             "speed": self.max_speed,
@@ -228,11 +271,15 @@ class RobotAgent:
         4. Broadcast updated state to peers.
         """
         self.poll_comms()
+        self.prev_pos = self.current_pos
 
         # If idle, just broadcast and return
         if not self.planned_path or self.target_goal is None:
             self.state = "IDLE"
+            self.state_reason = f"Robot {self.robot_id}: Idle at {self.current_pos}. Awaiting task assignment."
             self.yield_priority_weight = self.base_yield_priority_weight
+            self.total_idle_ticks += 1
+            self.velocity_mps = 0.0
             dec = ConflictDecision(
                 decision_type=DecisionType.CONTINUE,
                 reason_code=ReasonCode.RC_MOVING_NOMINAL,
@@ -329,13 +376,21 @@ class RobotAgent:
             self.state = "MOVING"
             next_cell = self.planned_path.pop(0)
             self.current_pos = next_cell
+            self._update_velocity_heading()
             self.odometer_meters += 1.0
             self.battery_pct = max(0.0, self.battery_pct - 0.05)
+            task_id = self.current_task.id if self.current_task else "N/A"
+            goal_str = str(self.target_goal) if self.target_goal else "N/A"
+            self.state_reason = (
+                f"Robot {self.robot_id}: Moving → {self.current_pos} | Task={task_id} "
+                f"| Phase={self.task_phase} | Goal={goal_str} | Remaining={len(self.planned_path)} steps."
+            )
 
             # Check if arrived at pickup
             if self.task_phase == "TO_PICKUP" and self.current_pos == self.target_goal:
                 logger.info(f"[{self.robot_id}] Arrived at pickup: {self.current_pos}. Loading payload...")
                 self.task_phase = "TO_DROPOFF"
+                self.state_reason = f"Robot {self.robot_id}: Pickup complete at {self.current_pos}. Planning route to dropoff."
                 if self.current_task:
                     self.target_goal = self.current_task.dropoff_pos
                     dropoff_path = self.pathfinder.find_path(
@@ -351,6 +406,8 @@ class RobotAgent:
             # Check if arrived at dropoff
             elif self.task_phase == "TO_DROPOFF" and self.current_pos == self.target_goal:
                 logger.info(f"[{self.robot_id}] Arrived at dropoff: {self.current_pos}. Task complete!")
+                self.state = "COMPLETED"
+                self.state_reason = f"Robot {self.robot_id}: Task {self.current_task.id if self.current_task else 'N/A'} completed at {self.current_pos}."
                 self.cycles_completed += 1
                 if self.current_task:
                     self.current_task.status = TaskStatus.COMPLETED
@@ -360,15 +417,38 @@ class RobotAgent:
                 self.target_goal = None
                 self.state = "IDLE"
                 self.yield_priority_weight = self.base_yield_priority_weight
+                self.velocity_mps = 0.0
 
         elif decision.decision_type == DecisionType.WAIT:
             self.state = "WAITING"
+            self.total_waiting_ticks += 1
+            self.velocity_mps = 0.0
+            peer_desc = decision.conflicting_peer_id or "unknown peer"
+            cell_desc = str(decision.conflict_pos) if decision.conflict_pos else str(self.current_pos)
+            self.state_reason = (
+                f"Robot {self.robot_id}: WAITING — {peer_desc} occupies cell {cell_desc}. "
+                f"Clearance pending ({self.arbiter.wait_ticks_counter}/{self.arbiter.max_wait_ticks_before_reroute} ticks)."
+            )
 
         elif decision.decision_type == DecisionType.YIELD:
             self.state = "YIELDING"
+            self.total_waiting_ticks += 1
+            self.velocity_mps = 0.0
+            peer_desc = decision.conflicting_peer_id or "unknown peer"
+            cell_desc = str(decision.conflict_pos) if decision.conflict_pos else str(self.current_pos)
+            self.state_reason = (
+                f"Robot {self.robot_id}: YIELDING at {cell_desc} — {peer_desc} has higher priority "
+                f"(§11.1 tie-break). {decision.explanation}"
+            )
 
         elif decision.decision_type == DecisionType.REROUTE:
             self.state = "REROUTING"
+            self.velocity_mps = 0.0
+            peer_desc = decision.conflicting_peer_id or "obstacle"
+            self.state_reason = (
+                f"Robot {self.robot_id}: REROUTING around {peer_desc} — "
+                f"calculating alternative corridor. Conflict at {decision.conflict_pos}."
+            )
             # Avoid the contested cell dynamically as well as other robots' current positions
             avoid_cells = set()
             if decision.conflict_pos:
@@ -399,5 +479,7 @@ class RobotAgent:
                 logger.warning(f"[{self.robot_id}] Dynamic reroute failed (path blocked).")
                 self.report_blocked("Dynamic reroute blocked by obstacles")
 
+        # Update space-time reservations after path is finalized (§11.2)
+        self._build_space_time_reservations(0)
         self.broadcast_state()
         return decision
