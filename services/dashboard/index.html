@@ -17,19 +17,16 @@
        ══════════════════════════════════════════════════════ -->
   <header class="app-header" role="banner">
     <div class="header-brand">
-      <!-- Logo mark: minimal robotics icon -->
-      <div class="brand-mark" aria-label="AMR Fleet Coordination">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="11" width="18" height="8" rx="2"/>
-          <circle cx="7" cy="20" r="1.5"/>
-          <circle cx="17" cy="20" r="1.5"/>
-          <path d="M7 11V7a2 2 0 012-2h6a2 2 0 012 2v4"/>
-          <line x1="12" y1="5" x2="12" y2="2"/>
+      <!-- Stylized glowing A logo mark matching reference image -->
+      <div class="brand-mark" aria-label="AMR Fleet Coordination" style="background:linear-gradient(135deg, #0ea5e9, #2563eb);box-shadow:0 0 12px rgba(14,165,233,0.4)">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px">
+          <path d="M12 2L3 20h4.5l2-4.5h5l2 4.5H21L12 2z" fill="#ffffff"/>
+          <path d="M12 6.8L9.8 12h4.4L12 6.8z" fill="#070a13"/>
         </svg>
       </div>
       <div>
-        <div class="brand-name">AMR Fleet Coordination</div>
-        <div class="brand-sub">SIH26123 · Bharat Electronics Limited · Decentralized · Safe</div>
+        <div class="brand-name">Autonomous Fleet Hub</div>
+        <div class="brand-sub">SIH26123 · Bharat Electronics Limited · Decentralized Coordination</div>
       </div>
     </div>
 
@@ -112,6 +109,13 @@
     </button>
 
     <div class="sidebar-bottom">
+      <div class="sidebar-award-card">
+        <div class="award-header">
+          <span class="award-trophy">🏆</span>
+          <span class="award-title">SIH 2023 Winner</span>
+        </div>
+        <div class="award-sub">Smarter Coordination.<br>Safer Tomorrow.</div>
+      </div>
       <button class="sidebar-bottom-btn" id="btnHelpSidebar" title="System guide">
         <span class="nav-icon">?</span> Guide
       </button>
@@ -123,8 +127,8 @@
        ══════════════════════════════════════════════════════ -->
   <main class="app-main" id="appMain">
 
-    <!-- ── KPI Strip (visible on all views) ─────────────── -->
-    <div class="kpi-strip" role="region" aria-label="System key indicators">
+    <!-- ── KPI Strip (visible on views 2-5) ────────────── -->
+    <div class="kpi-strip" id="topKpiStrip" style="display:none" role="region" aria-label="System key indicators">
       <div class="kpi-card">
         <div class="kpi-label">Safety — Collisions</div>
         <div class="kpi-val-row">
@@ -163,72 +167,278 @@
     <div class="views-wrapper">
 
       <!-- ════════════════════════════════════════════════════
-           VIEW 1: Fleet Overview
-           AMR table with state, reason, conflict peer, battery
+           VIEW 1: Fleet Overview (Reference Image Match)
            ════════════════════════════════════════════════════ -->
       <section class="view-pane active" id="view-fleet" role="tabpanel" aria-label="Fleet Overview">
 
-        <!-- AMR Fleet Table -->
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">Live AMR Fleet</div>
-              <div class="panel-sub">Click any row to open Robot Detail · Local arbitration running on each agent</div>
+        <!-- ── HERO BANNER ────────────────────────────────── -->
+        <div class="hero-banner" role="banner">
+          <div class="hero-banner-content">
+            <div class="hero-tags">
+              <span>Decentralized</span>
+              <span class="hero-tag-sep">|</span>
+              <span>MAPF</span>
+              <span class="hero-tag-sep">|</span>
+              <span>Edge AI</span>
+              <span class="hero-tag-sep">|</span>
+              <span>Simulation</span>
+              <span class="hero-tag-sep">|</span>
+              <span>MovingAI</span>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span class="live-pill"><span class="pulse-dot"></span>&nbsp;LIVE</span>
-              <button id="btnClearFaults" class="btn btn-sm btn-ghost">Clear Faults</button>
+            <h1 class="hero-title">Multi-AMR Coordination for Smarter Warehouses</h1>
+            <p class="hero-desc">
+              Decentralized agents, real-time coordination, and AI-driven path planning for efficient and safe material movement.
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" id="btnHeroOverview">System Overview →</button>
             </div>
           </div>
-          <div class="fleet-table-view">
-            <table class="amr-table" aria-label="AMR fleet status table">
-              <thead>
-                <tr>
-                  <th>AMR ID</th>
-                  <th>Type</th>
-                  <th>State</th>
-                  <th>Comms</th>
-                  <th>Battery</th>
-                  <th>Velocity</th>
-                  <th>Odometer</th>
-                  <th>Task</th>
-                  <th>State Reason / Conflict</th>
-                </tr>
-              </thead>
-              <tbody id="fleetTableBody">
-                <!-- populated by JS -->
-              </tbody>
-            </table>
+          <div class="hero-banner-visual">
+            <button class="hero-map-btn" id="btnHeroShowMap" title="Switch to 2D Warehouse Tactical Map">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+              Show Map →
+            </button>
           </div>
         </div>
 
-        <!-- Active Task Queue -->
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">Active Task Queue</div>
-              <div class="panel-sub">Hungarian cost-minimisation assignment · scipy.optimize.linear_sum_assignment</div>
+        <!-- ── 5 OVERVIEW KPI CARDS ───────────────────────── -->
+        <div class="overview-kpi-grid">
+          <!-- Card 1: Total Fleet -->
+          <div class="overview-kpi-card">
+            <div class="kpi-icon-box blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="8" rx="2"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M7 11V7a2 2 0 012-2h6a2 2 0 012 2v4"/></svg>
             </div>
-            <span class="live-pill"><span class="pulse-dot"></span>&nbsp;Hungarian Matched</span>
+            <div class="kpi-info">
+              <div class="kpi-label">Total Fleet</div>
+              <div class="kpi-number-row">
+                <span class="kpi-big-num" id="kpiTotalFleet">6</span>
+                <span class="kpi-unit">AMRs</span>
+              </div>
+              <div class="kpi-trend positive" id="kpiFleetTrend">↑ All online & healthy</div>
+            </div>
           </div>
-          <div style="overflow-x:auto">
-            <table class="task-table" aria-label="Task queue">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Pickup</th>
-                  <th>Dropoff</th>
-                  <th>Payload</th>
-                  <th>Priority</th>
-                  <th>Assigned AMR</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="taskTableBody">
+
+          <!-- Card 2: Tasks Completed -->
+          <div class="overview-kpi-card">
+            <div class="kpi-icon-box purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </div>
+            <div class="kpi-info">
+              <div class="kpi-label">Tasks Completed</div>
+              <div class="kpi-number-row">
+                <span class="kpi-big-num" id="kpiTasksCompleted">0</span>
+                <span class="kpi-unit" id="kpiTasksTarget">/ 50</span>
+              </div>
+              <div class="kpi-trend positive">↑ 100% Hungarian matched</div>
+            </div>
+          </div>
+
+          <!-- Card 3: Avg. Delivery Time -->
+          <div class="overview-kpi-card">
+            <div class="kpi-icon-box cyan">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="kpi-info">
+              <div class="kpi-label">Avg. Delivery Time</div>
+              <div class="kpi-number-row">
+                <span class="kpi-big-num" id="kpiAvgDeliveryTime">2.4</span>
+                <span class="kpi-unit">min</span>
+              </div>
+              <div class="kpi-trend positive" id="kpiDeliveryTrend">↓ 29.0% vs baseline</div>
+            </div>
+          </div>
+
+          <!-- Card 4: Avg. Battery Level -->
+          <div class="overview-kpi-card">
+            <div class="kpi-icon-box green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg>
+            </div>
+            <div class="kpi-info">
+              <div class="kpi-label">Avg. Battery Level</div>
+              <div class="kpi-number-row">
+                <span class="kpi-big-num" id="kpiAvgBattery">84</span>
+                <span class="kpi-unit">%</span>
+              </div>
+              <div class="kpi-trend positive" id="kpiBatteryTrend">↑ Fleet state optimal</div>
+            </div>
+          </div>
+
+          <!-- Card 5: Active Alerts -->
+          <div class="overview-kpi-card">
+            <div class="kpi-icon-box amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="kpi-info">
+              <div class="kpi-label">Active Alerts</div>
+              <div class="kpi-number-row">
+                <span class="kpi-big-num" id="kpiActiveAlerts">0</span>
+                <span class="kpi-unit">Alerts</span>
+              </div>
+              <div class="kpi-trend neutral" id="kpiAlertTrend">0 Deadlocks · 0 Collisions</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 2-COLUMN SPLIT LAYOUT ──────────────────────── -->
+        <div class="overview-split-layout">
+
+          <!-- LEFT / MAIN COLUMN -->
+          <div class="overview-main-col">
+
+            <!-- Live AMR Fleet Table -->
+            <div class="panel">
+              <div class="panel-header">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="8" rx="2"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M7 11V7a2 2 0 012-2h6a2 2 0 012 2v4"/></svg>
+                  <div>
+                    <div class="panel-title">Fleet Overview</div>
+                    <div class="panel-sub">Decentralized agents · Local arbitration running on each node</div>
+                  </div>
+                </div>
+                <div class="table-header-row">
+                  <input type="text" id="searchAmrInput" class="table-search-input" placeholder="Search AMR ID or status...">
+                  <span class="live-pill"><span class="pulse-dot"></span>&nbsp;LIVE</span>
+                  <button id="btnClearFaults" class="btn btn-sm btn-ghost">Clear Faults</button>
+                </div>
+              </div>
+              <div class="fleet-table-view">
+                <table class="amr-table" aria-label="AMR fleet status table">
+                  <thead>
+                    <tr>
+                      <th>AMR ID</th>
+                      <th>Type</th>
+                      <th>State</th>
+                      <th>Comms</th>
+                      <th>Battery</th>
+                      <th>Velocity</th>
+                      <th>Odometer</th>
+                      <th>Task</th>
+                      <th>State Reason / Conflict</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fleetTableBody">
+                    <!-- populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Active Task Queue Table -->
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <div class="panel-title">Active Task Queue</div>
+                  <div class="panel-sub">Hungarian cost-minimisation assignment · scipy.optimize.linear_sum_assignment</div>
+                </div>
+                <span class="live-pill"><span class="pulse-dot"></span>&nbsp;Hungarian Matched</span>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="task-table" aria-label="Task queue">
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Pickup</th>
+                      <th>Dropoff</th>
+                      <th>Payload</th>
+                      <th>Priority</th>
+                      <th>Assigned AMR</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="taskTableBody">
+                    <!-- populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN (Sidebar Widgets) -->
+          <div class="overview-sidebar-col">
+
+            <!-- System Status Card with Donut Chart -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">System Status</div>
+                <span class="pill pill-green"><span class="status-led" style="display:inline-block;width:6px;height:6px;margin-right:4px"></span>Online</span>
+              </div>
+              <div class="donut-chart-container">
+                <div class="donut-svg-wrap">
+                  <svg class="donut-svg" viewBox="0 0 100 100">
+                    <circle class="donut-track" cx="50" cy="50" r="40"/>
+                    <circle class="donut-stroke" id="donutProgressCircle" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="0"/>
+                  </svg>
+                  <div class="donut-center">
+                    <span class="donut-center-num" id="donutActiveRatio">6/6</span>
+                    <span class="donut-center-label">Active AMRs</span>
+                  </div>
+                </div>
+                <div class="donut-legend">
+                  <div class="donut-legend-item">
+                    <div class="donut-legend-left"><span class="legend-dot green"></span>Moving</div>
+                    <span class="donut-legend-val" id="statusMovingCount">4</span>
+                  </div>
+                  <div class="donut-legend-item">
+                    <div class="donut-legend-left"><span class="legend-dot blue"></span>Idle</div>
+                    <span class="donut-legend-val" id="statusIdleCount">1</span>
+                  </div>
+                  <div class="donut-legend-item">
+                    <div class="donut-legend-left"><span class="legend-dot amber"></span>Charging / Yield</div>
+                    <span class="donut-legend-val" id="statusYieldingCount">1</span>
+                  </div>
+                  <div class="donut-legend-item">
+                    <div class="donut-legend-left"><span class="legend-dot red"></span>Faulted</div>
+                    <span class="donut-legend-val" id="statusFaultedCount">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Activity Card -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Recent Activity</div>
+                <a id="linkViewAllActivity" href="#" style="color:var(--blue-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
+              </div>
+              <div class="activity-feed" id="overviewActivityFeed">
                 <!-- populated by JS -->
-              </tbody>
-            </table>
+              </div>
+            </div>
+
+            <!-- Alerts Card -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Alerts</div>
+                <a id="linkViewAllAlerts" href="#" style="color:var(--blue-light);font-size:11px;font-weight:600;text-decoration:none">View All →</a>
+              </div>
+              <div id="overviewAlertsBox" style="padding:13px 14px;font-size:11.5px;color:var(--text-secondary)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="color:var(--green-light);font-size:14px">✓</span>
+                  <span>All systems nominal. Zero collisions and zero deadlocks recorded.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Guidance (Edge) Card -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="ai-guidance-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  AI Guidance (Edge)
+                </div>
+                <span class="ai-pill">● Active</span>
+              </div>
+              <div class="ai-guidance-card">
+                <div class="ai-guidance-body" id="aiGuidanceText">
+                  Decentralized spatial reservation nominal. Traffic flow optimized at +29.0% vs baseline.
+                </div>
+                <button class="btn btn-sm btn-secondary" id="btnViewAiDetails" style="align-self:flex-start">View Details →</button>
+              </div>
+            </div>
+
           </div>
+
         </div>
 
       </section>
@@ -781,6 +991,23 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       BOTTOM ARCHITECTURE TICKER (Reference Image Match)
+       ══════════════════════════════════════════════════════ -->
+  <footer class="bottom-ticker" role="contentinfo" aria-label="Decentralized coordination architecture">
+    <span class="ticker-item"><span class="ticker-dot"></span>Decentralized Coordination</span>
+    <span class="ticker-sep">•</span>
+    <span class="ticker-item"><span class="ticker-dot"></span>P2P Communication</span>
+    <span class="ticker-sep">•</span>
+    <span class="ticker-item"><span class="ticker-dot"></span>A* Path Planning</span>
+    <span class="ticker-sep">•</span>
+    <span class="ticker-item"><span class="ticker-dot"></span>Edge AI</span>
+    <span class="ticker-sep">•</span>
+    <span class="ticker-item"><span class="ticker-dot"></span>Real-time Simulation</span>
+    <span class="ticker-sep">•</span>
+    <span class="ticker-item"><span class="ticker-dot"></span>MovingAI Benchmark</span>
+  </footer>
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

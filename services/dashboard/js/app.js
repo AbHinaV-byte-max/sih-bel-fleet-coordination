@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  setupOverviewControls();
   setupSidebarNav();
   setupHeaderControls();
   setupTaskModal();
@@ -92,6 +93,30 @@ function navigateTo(viewId) {
   });
   document.querySelectorAll('.view-pane').forEach(p => {
     p.classList.toggle('active', p.id === viewId);
+  });
+  const topKpi = el('topKpiStrip');
+  if (topKpi) {
+    topKpi.style.display = (viewId === 'view-fleet') ? 'none' : 'grid';
+  }
+}
+
+function setupOverviewControls() {
+  el('btnHeroShowMap')?.addEventListener('click', () => navigateTo('view-map'));
+  el('btnHeroOverview')?.addEventListener('click', () => {
+    navigateTo('view-fleet');
+    el('fleetTableBody')?.scrollIntoView({ behavior: 'smooth' });
+  });
+  el('linkViewAllActivity')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateTo('view-log');
+  });
+  el('linkViewAllAlerts')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateTo('view-log');
+  });
+  el('btnViewAiDetails')?.addEventListener('click', () => navigateTo('view-detail'));
+  el('searchAmrInput')?.addEventListener('input', () => {
+    updateFleetTable(lastRobots);
   });
 }
 
@@ -225,12 +250,121 @@ function updateKPIStrip(data) {
   el('tagHealthKpi').className   = `kpi-tag ${hasFault ? 'tag-red' : 'tag-amber'}`;
 }
 
+let lastRobots = [];
+
 // ── VIEW 1: Fleet Overview ─────────────────────────────────────────
 function updateFleetView(data) {
   const robots = data.robots ? Object.values(data.robots) : [];
+  lastRobots = robots;
+
+  updateOverviewKpis(data);
+  updateSystemStatusWidget(robots);
+  updateRecentActivityWidget();
+  updateAiGuidanceWidget(robots, data.metrics);
+
   updateFleetTable(robots);
   updateTaskTable(data.tasks || []);
   updateRobotSelector(robots);
+}
+
+// ── 5 Overview KPI Cards ───────────────────────────────────────────
+function updateOverviewKpis(data) {
+  const m = data.metrics || {};
+  const robots = data.robots ? Object.values(data.robots) : [];
+
+  if (el('kpiTotalFleet')) el('kpiTotalFleet').textContent = robots.length || 6;
+  if (el('kpiTasksCompleted')) el('kpiTasksCompleted').textContent = m.tasks_completed ?? 0;
+  if (el('kpiActiveAlerts')) el('kpiActiveAlerts').textContent = m.deadlock_count ?? 0;
+
+  if (el('kpiAvgBattery') && robots.length) {
+    const totalBatt = robots.reduce((sum, r) => sum + (r.battery_pct ?? 100), 0);
+    const avgBatt = Math.round(totalBatt / robots.length);
+    el('kpiAvgBattery').textContent = avgBatt;
+  }
+
+  const imp = m.efficiency_improvement_pct;
+  if (el('kpiDeliveryTrend') && imp != null) {
+    el('kpiDeliveryTrend').textContent = `↓ ${imp.toFixed(1)}% vs baseline`;
+  }
+}
+
+// ── System Status Donut Widget ─────────────────────────────────────
+function updateSystemStatusWidget(robots) {
+  const moving   = robots.filter(r => r.state === 'MOVING').length;
+  const idle     = robots.filter(r => r.state === 'IDLE' || r.state === 'COMPLETED').length;
+  const yielding = robots.filter(r => r.state === 'YIELDING' || r.state === 'WAITING' || r.state === 'CHARGING').length;
+  const faulted  = robots.filter(r => r.state === 'FAILED' || r.state === 'DEGRADED').length;
+  const active   = robots.filter(r => r.state !== 'FAILED' && r.state !== 'IDLE').length;
+
+  if (el('donutActiveRatio')) el('donutActiveRatio').textContent = `${active}/${robots.length}`;
+  if (el('statusMovingCount')) el('statusMovingCount').textContent = moving;
+  if (el('statusIdleCount')) el('statusIdleCount').textContent = idle;
+  if (el('statusYieldingCount')) el('statusYieldingCount').textContent = yielding;
+  if (el('statusFaultedCount')) el('statusFaultedCount').textContent = faulted;
+
+  // Animate Donut circle stroke (circumference 251.2 for r=40)
+  const circle = el('donutProgressCircle');
+  if (circle && robots.length > 0) {
+    const ratio = active / robots.length;
+    const offset = 251.2 * (1 - ratio);
+    circle.style.strokeDashoffset = offset;
+  }
+}
+
+// ── Recent Activity Widget ────────────────────────────────────────
+function updateRecentActivityWidget() {
+  const container = el('overviewActivityFeed');
+  if (!container) return;
+
+  if (!logBuffer || !logBuffer.length) {
+    container.innerHTML = `
+      <div class="activity-item">
+        <span class="activity-dot green"></span>
+        <div class="activity-content">
+          <div class="activity-title">Fleet Online</div>
+          <div class="activity-desc">AMRs broadcasting P2P state packets</div>
+        </div>
+        <span class="activity-time">Now</span>
+      </div>
+    `;
+    return;
+  }
+
+  const recent = logBuffer.slice(0, 4);
+  container.innerHTML = recent.map(log => {
+    let dotClass = 'blue';
+    const dType = (log.decision_type || '').toUpperCase();
+    if (dType === 'YIELD' || dType === 'WAIT') dotClass = 'amber';
+    else if (dType === 'CONTINUE' || dType === 'COMPLETED') dotClass = 'green';
+    else if (dType === 'DEADLOCK' || dType === 'FAILED' || dType === 'REROUTE') dotClass = 'red';
+
+    const timeStr = log.tick != null ? `T${log.tick}` : 'Now';
+    return `
+      <div class="activity-item">
+        <span class="activity-dot ${dotClass}"></span>
+        <div class="activity-content">
+          <div class="activity-title">${escHtml(log.robot_id || 'AMR')} · ${escHtml(log.decision_type || 'UPDATE')}</div>
+          <div class="activity-desc">${escHtml(log.explanation || log.reason_code || 'P2P intent coordinated')}</div>
+        </div>
+        <span class="activity-time">${escHtml(timeStr)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── AI Guidance Widget ────────────────────────────────────────────
+function updateAiGuidanceWidget(robots, metrics) {
+  const box = el('aiGuidanceText');
+  if (!box) return;
+
+  const yielding = robots.filter(r => r.state === 'YIELDING');
+  if (yielding.length > 0) {
+    const r = yielding[0];
+    const peer = r.last_decision?.conflicting_peer_id || 'peer';
+    box.textContent = `Edge AI recommendation: ${r.id} yielding to ${peer} to prevent corridor bottle-neck.`;
+  } else if (metrics && metrics.efficiency_improvement_pct != null) {
+    box.textContent = `Decentralized priority arbiter active. Traffic flow optimized at +${metrics.efficiency_improvement_pct.toFixed(1)}% vs baseline naive stop-and-wait.`;
+  }
 }
 
 function updateFleetTable(robots) {
@@ -242,7 +376,22 @@ function updateFleetTable(robots) {
     return;
   }
 
-  tbody.innerHTML = robots.map(r => {
+  const query = (el('searchAmrInput')?.value || '').trim().toLowerCase();
+  const filtered = query
+    ? robots.filter(r =>
+        (r.id && r.id.toLowerCase().includes(query)) ||
+        (r.state && r.state.toLowerCase().includes(query)) ||
+        (r.type && r.type.toLowerCase().includes(query)) ||
+        (r.state_reason && r.state_reason.toLowerCase().includes(query))
+      )
+    : robots;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-state">No robots match "${escHtml(query)}"</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => {
     const battPct = r.battery_pct ?? 100;
     const battCls = battPct > 50 ? 'batt-high' : battPct > 25 ? 'batt-medium' : 'batt-low';
 
@@ -265,8 +414,13 @@ function updateFleetTable(robots) {
       <tr id="amr-row-${r.id}" class="${r.id === selectedRobotId ? 'selected' : ''}"
           onclick="selectRobotRow('${escHtml(r.id)}')"
           title="Click to inspect ${escHtml(r.id)} in Robot Detail">
-        <td class="td-main">${escHtml(r.id)}</td>
-        <td>${escHtml(r.type || '—')}</td>
+        <td class="td-main">
+          <div style="display:flex;align-items:center;gap:7px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="8" rx="2"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M7 11V7a2 2 0 012-2h6a2 2 0 012 2v4"/></svg>
+            <strong>${escHtml(r.id)}</strong>
+          </div>
+        </td>
+        <td>${escHtml(r.type || 'Standard')}</td>
         <td><span class="state-tag state-${escHtml(r.state)}">${escHtml(r.state)}</span></td>
         <td><span class="comm-badge comm-${escHtml(r.comm_status || 'HEALTHY')}">${escHtml(r.comm_status || 'HEALTHY')}</span></td>
         <td>
